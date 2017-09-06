@@ -3,7 +3,9 @@ module MailForm
     include ActiveModel::Conversion
     extend  ActiveModel::Naming
     extend  ActiveModel::Translation
+    extend ActiveModel::Callbacks
     include ActiveModel::Validations
+    include MailForm::Validators
     include ActiveModel::AttributeMethods # attributes method behavior
     attribute_method_prefix 'clear_'      # clear_ is attribute prefix
     attribute_method_suffix '?'
@@ -12,6 +14,14 @@ module MailForm
     # so if a class inherits from this it will inherit the attributes too
     class_attribute :attribute_names
     self.attribute_names = []
+
+    define_model_callbacks :deliver
+
+    def initialize(attributes = {})
+      attributes.each do |attr, value|
+        self.public_send("#{attr}=", value)
+      end
+    end
 
     def self.attributes(*names)
       attr_accessor(*names)
@@ -26,7 +36,9 @@ module MailForm
 
     def deliver
       if valid?
-        MailForm::Notifier.contact(self).deliver
+        run_callbacks do
+          MailForm::Notifier.contact(self).deliver
+        end
       else
         false
       end
